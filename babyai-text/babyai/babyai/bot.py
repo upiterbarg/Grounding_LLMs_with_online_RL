@@ -1,7 +1,16 @@
 from gym_minigrid.minigrid import *
 from babyai.levels.verifier import *
-from babyai.levels.verifier import (ObjDesc, pos_next_to,
-                                    GoToInstr, OpenInstr, PickupInstr, PutNextInstr, BeforeInstr, AndInstr, AfterInstr)
+from babyai.levels.verifier import (
+    ObjDesc,
+    pos_next_to,
+    GoToInstr,
+    OpenInstr,
+    PickupInstr,
+    PutNextInstr,
+    BeforeInstr,
+    AndInstr,
+    AfterInstr,
+)
 
 
 class DisappearedBoxError(Exception):
@@ -9,6 +18,7 @@ class DisappearedBoxError(Exception):
     Error that's thrown when a box is opened.
     We make the assumption that the bot cannot accomplish the mission when it happens.
     """
+
     def __init__(self, value):
         self.value = value
 
@@ -46,13 +56,13 @@ class Subgoal:
 
     def __repr__(self):
         """Mainly for debugging purposes"""
-        representation = '('
+        representation = "("
         representation += type(self).__name__
         if self.datum is not None:
-            representation += ': {}'.format(self.datum)
+            representation += ": {}".format(self.datum)
         if self.reason is not None:
-            representation += ', reason: {}'.format(self.reason)
-        representation += ')'
+            representation += ", reason: {}".format(self.reason)
+        representation += ")"
         return representation
 
     def update_agent_attributes(self):
@@ -84,7 +94,6 @@ class Subgoal:
         """
         raise NotImplementedError()
 
-
     def replan_after_action(self, action_taken):
         """Change the plan when the taken action is known.
 
@@ -95,7 +104,6 @@ class Subgoal:
 
         """
         pass
-
 
     def is_exploratory(self):
         """Whether the subgoal is exploratory or not.
@@ -118,36 +126,50 @@ class Subgoal:
         elif action_taken == self.actions.right:
             old_fwd_pos = self.pos - self.right_vec
             self.bot.stack.append(GoNextToSubgoal(self.bot, self.pos - self.right_vec))
-        elif action_taken == self.actions.drop and self.bot.prev_carrying != self.carrying:
+        elif (
+            action_taken == self.actions.drop
+            and self.bot.prev_carrying != self.carrying
+        ):
             # get that thing back, if dropping was succesful
-            assert self.fwd_cell.type in ('key', 'box', 'ball')
+            assert self.fwd_cell.type in ("key", "box", "ball")
             self.bot.stack.append(PickupSubgoal(self.bot))
-        elif action_taken == self.actions.pickup and self.bot.prev_carrying != self.carrying:
+        elif (
+            action_taken == self.actions.pickup
+            and self.bot.prev_carrying != self.carrying
+        ):
             # drop that thing where you found it
             fwd_cell = self.bot.mission.grid.get(*self.fwd_pos)
             self.bot.stack.append(DropSubgoal(self.bot))
         elif action_taken == self.actions.toggle:
             # if you opened or closed a door, bring it back in the original state
             fwd_cell = self.bot.mission.grid.get(*self.fwd_pos)
-            if (fwd_cell and fwd_cell.type == 'door'
-                    and self.bot.fwd_door_was_open != fwd_cell.is_open):
-                self.bot.stack.append(CloseSubgoal(self.bot)
-                                      if fwd_cell.is_open
-                                      else OpenSubgoal(self.bot))
+            if (
+                fwd_cell
+                and fwd_cell.type == "door"
+                and self.bot.fwd_door_was_open != fwd_cell.is_open
+            ):
+                self.bot.stack.append(
+                    CloseSubgoal(self.bot)
+                    if fwd_cell.is_open
+                    else OpenSubgoal(self.bot)
+                )
 
 
 class CloseSubgoal(Subgoal):
-
     def replan_before_action(self):
-        assert self.fwd_cell is not None, 'Forward cell is empty'
-        assert self.fwd_cell.type == 'door', 'Forward cell has to be a door'
-        assert self.fwd_cell.is_open, 'Forward door must be open'
+        assert self.fwd_cell is not None, "Forward cell is empty"
+        assert self.fwd_cell.type == "door", "Forward cell has to be a door"
+        assert self.fwd_cell.is_open, "Forward door must be open"
         return self.actions.toggle
 
     def replan_after_action(self, action_taken):
         if action_taken is None or action_taken == self.actions.toggle:
             self.bot.stack.pop()
-        elif action_taken in [self.actions.forward, self.actions.left, self.actions.right]:
+        elif action_taken in [
+            self.actions.forward,
+            self.actions.left,
+            self.actions.right,
+        ]:
             self._plan_undo_action(action_taken)
 
 
@@ -168,17 +190,20 @@ class OpenSubgoal(Subgoal):
     """
 
     def replan_before_action(self):
-        assert self.fwd_cell is not None, 'Forward cell is empty'
-        assert self.fwd_cell.type == 'door', 'Forward cell has to be a door'
+        assert self.fwd_cell is not None, "Forward cell is empty"
+        assert self.fwd_cell.type == "door", "Forward cell has to be a door"
 
         # If the door is locked, go find the key and then return
         # TODO: do we really need to be in front of the locked door
         # to realize that we need the key for it ?
-        got_the_key = (self.carrying and self.carrying.type == 'key'
-            and self.carrying.color == self.fwd_cell.color)
-        if (self.fwd_cell.is_locked and not got_the_key):
+        got_the_key = (
+            self.carrying
+            and self.carrying.type == "key"
+            and self.carrying.color == self.fwd_cell.color
+        )
+        if self.fwd_cell.is_locked and not got_the_key:
             # Find the key
-            key_desc = ObjDesc('key', self.fwd_cell.color)
+            key_desc = ObjDesc("key", self.fwd_cell.color)
             key_desc.find_matching_objs(self.bot.mission)
 
             # If we're already carrying something
@@ -227,7 +252,7 @@ class OpenSubgoal(Subgoal):
 
         if self.fwd_cell.is_locked and self.reason is None:
             self.bot.stack.pop()
-            self.bot.stack.append(OpenSubgoal(self.bot, reason='Unlock'))
+            self.bot.stack.append(OpenSubgoal(self.bot, reason="Unlock"))
             return
 
         return self.actions.toggle
@@ -235,7 +260,7 @@ class OpenSubgoal(Subgoal):
     def replan_after_action(self, action_taken):
         if action_taken is None or action_taken == self.actions.toggle:
             self.bot.stack.pop()
-            if self.reason == 'Unlock':
+            if self.reason == "Unlock":
                 # The reason why this has to be planned after the action is taken
                 # is because if the position for dropping is chosen in advance,
                 # then by the time the key is dropped there, it might already
@@ -248,7 +273,6 @@ class OpenSubgoal(Subgoal):
 
 
 class DropSubgoal(Subgoal):
-
     def replan_before_action(self):
         assert self.bot.mission.carrying
         assert not self.fwd_cell
@@ -257,12 +281,15 @@ class DropSubgoal(Subgoal):
     def replan_after_action(self, action_taken):
         if action_taken is None or action_taken == self.actions.drop:
             self.bot.stack.pop()
-        elif action_taken in [self.actions.forward, self.actions.left, self.actions.right]:
+        elif action_taken in [
+            self.actions.forward,
+            self.actions.left,
+            self.actions.right,
+        ]:
             self._plan_undo_action(action_taken)
 
 
 class PickupSubgoal(Subgoal):
-
     def replan_before_action(self):
         assert not self.bot.mission.carrying
         return self.actions.pickup
@@ -295,7 +322,9 @@ class GoNextToSubgoal(Subgoal):
     def replan_before_action(self):
         target_obj = None
         if isinstance(self.datum, ObjDesc):
-            target_obj, target_pos = self.bot._find_obj_pos(self.datum, self.reason == 'PutNext')
+            target_obj, target_pos = self.bot._find_obj_pos(
+                self.datum, self.reason == "PutNext"
+            )
             if not target_pos:
                 # No path found -> Explore the world
                 self.bot.stack.append(ExploreSubgoal(self.bot))
@@ -311,23 +340,33 @@ class GoNextToSubgoal(Subgoal):
         # something, it makes to just continue, as we still need to bring this object
         # close to the door. If we are not carrying anything though, then it makes
         # sense to change the plan and go straight for the required key.
-        if (self.reason == 'Open'
-                and target_obj and target_obj.type == 'door' and target_obj.is_locked):
-            key_desc = ObjDesc('key', target_obj.color)
+        if (
+            self.reason == "Open"
+            and target_obj
+            and target_obj.type == "door"
+            and target_obj.is_locked
+        ):
+            key_desc = ObjDesc("key", target_obj.color)
             key_desc.find_matching_objs(self.bot.mission)
             if not self.carrying:
                 # No we need to commit to going to this particular door
                 self.bot.stack.pop()
-                self.bot.stack.append(GoNextToSubgoal(self.bot, target_obj, reason='Open'))
+                self.bot.stack.append(
+                    GoNextToSubgoal(self.bot, target_obj, reason="Open")
+                )
                 self.bot.stack.append(PickupSubgoal(self.bot))
                 self.bot.stack.append(GoNextToSubgoal(self.bot, key_desc))
                 return
 
         # The position we are on is the one we should go next to
         # -> Move away from it
-        if manhattan_distance(target_pos, self.pos) == (1 if self.reason == 'PutNext' else 0):
+        if manhattan_distance(target_pos, self.pos) == (
+            1 if self.reason == "PutNext" else 0
+        ):
+
             def steppable(cell):
-                return cell is None or (cell.type == 'door' and cell.is_open)
+                return cell is None or (cell.type == "door" and cell.is_open)
+
             if steppable(self.fwd_cell):
                 return self.actions.forward
             if steppable(self.bot.mission.grid.get(*(self.pos + self.right_vec))):
@@ -339,17 +378,18 @@ class GoNextToSubgoal(Subgoal):
 
         # We are facing the target cell
         # -> subgoal completed
-        if self.reason == 'PutNext':
+        if self.reason == "PutNext":
             if manhattan_distance(target_pos, self.fwd_pos) == 1:
                 if self.fwd_cell is None:
                     self.bot.stack.pop()
                     return
-                if self.fwd_cell.type == 'door' and self.fwd_cell.is_open:
+                if self.fwd_cell.type == "door" and self.fwd_cell.is_open:
                     # We can't drop an object in the cell where the door is.
                     # Instead, we add a subgoal on the stack that will force
                     # the bot to move the target object.
-                    self.bot.stack.append(GoNextToSubgoal(
-                        self.bot, self.fwd_pos + 2 * self.dir_vec))
+                    self.bot.stack.append(
+                        GoNextToSubgoal(self.bot, self.fwd_pos + 2 * self.dir_vec)
+                    )
                     return
         else:
             if np.array_equal(target_pos, self.fwd_pos):
@@ -367,8 +407,7 @@ class GoNextToSubgoal(Subgoal):
         # -> Look for blocker paths
         if not path:
             path, _, _ = self.bot._shortest_path(
-                lambda pos, cell: pos == target_pos,
-                try_with_blockers=True
+                lambda pos, cell: pos == target_pos, try_with_blockers=True
             )
 
         # No path found
@@ -385,7 +424,7 @@ class GoNextToSubgoal(Subgoal):
         # is the one we should go next to
         if np.array_equal(next_cell, self.fwd_pos):
             if self.fwd_cell:
-                if self.fwd_cell.type == 'door':
+                if self.fwd_cell.type == "door":
                     assert not self.fwd_cell.is_locked
                     if not self.fwd_cell.is_open:
                         self.bot.stack.append(OpenSubgoal(self.bot))
@@ -435,50 +474,63 @@ class GoNextToSubgoal(Subgoal):
         # that doesn't lead you to face a non empty cell.
         # One better thing would be to go to the direction
         # where the closest wall/door is the furthest
-        distance_right = self.bot._closest_wall_or_door_given_dir(self.pos, self.right_vec)
-        distance_left = self.bot._closest_wall_or_door_given_dir(self.pos, -self.right_vec)
+        distance_right = self.bot._closest_wall_or_door_given_dir(
+            self.pos, self.right_vec
+        )
+        distance_left = self.bot._closest_wall_or_door_given_dir(
+            self.pos, -self.right_vec
+        )
         if distance_left > distance_right:
             return self.actions.left
         return self.actions.right
 
     def replan_after_action(self, action_taken):
-        if action_taken in [self.actions.pickup, self.actions.drop, self.actions.toggle]:
+        if action_taken in [
+            self.actions.pickup,
+            self.actions.drop,
+            self.actions.toggle,
+        ]:
             self._plan_undo_action(action_taken)
 
     def is_exploratory(self):
-        return self.reason == 'Explore'
+        return self.reason == "Explore"
 
 
 class ExploreSubgoal(Subgoal):
     def replan_before_action(self):
         # Find the closest unseen position
         _, unseen_pos, with_blockers = self.bot._shortest_path(
-            lambda pos, cell: not self.bot.vis_mask[pos],
-            try_with_blockers=True
+            lambda pos, cell: not self.bot.vis_mask[pos], try_with_blockers=True
         )
 
         if unseen_pos:
-            self.bot.stack.append(GoNextToSubgoal(self.bot, unseen_pos, reason='Explore'))
+            self.bot.stack.append(
+                GoNextToSubgoal(self.bot, unseen_pos, reason="Explore")
+            )
             return None
 
         # Find the closest unlocked unopened door
         def unopened_unlocked_door(pos, cell):
-            return cell and cell.type == 'door' and not cell.is_locked and not cell.is_open
+            return (
+                cell and cell.type == "door" and not cell.is_locked and not cell.is_open
+            )
 
         # Find the closest unopened door
         def unopened_door(pos, cell):
-            return cell and cell.type == 'door' and not cell.is_open
+            return cell and cell.type == "door" and not cell.is_open
 
         # Try to find an unlocked door first.
         # We do this because otherwise, opening a locked door as
         # a subgoal may try to open the same door for exploration,
         # resulting in an infinite loop.
         _, door_pos, _ = self.bot._shortest_path(
-            unopened_unlocked_door, try_with_blockers=True)
+            unopened_unlocked_door, try_with_blockers=True
+        )
         if not door_pos:
             # Try to find a locker door if an unlocked one is not available.
             _, door_pos, _ = self.bot._shortest_path(
-            unopened_door, try_with_blockers=True)
+                unopened_door, try_with_blockers=True
+            )
 
         # Open the door
         if door_pos:
@@ -486,12 +538,15 @@ class ExploreSubgoal(Subgoal):
             # If we are going to a locked door, there are two cases:
             # - we already have the key, then we should not drop it
             # - we don't have the key, in which case eventually we should drop it
-            got_the_key = (self.carrying
-                and self.carrying.type == 'key' and self.carrying.color == door_obj.color)
-            open_reason = 'KeepKey' if door_obj.is_locked and got_the_key else None
+            got_the_key = (
+                self.carrying
+                and self.carrying.type == "key"
+                and self.carrying.color == door_obj.color
+            )
+            open_reason = "KeepKey" if door_obj.is_locked and got_the_key else None
             self.bot.stack.pop()
             self.bot.stack.append(OpenSubgoal(self.bot, reason=open_reason))
-            self.bot.stack.append(GoNextToSubgoal(self.bot, door_obj, reason='Open'))
+            self.bot.stack.append(GoNextToSubgoal(self.bot, door_obj, reason="Open"))
             return
 
         assert False, "0nothing left to explore"
@@ -529,7 +584,7 @@ class Bot:
         self.grid = Grid(mission.width, mission.height)
 
         # Visibility mask. True for explored/seen, false for unexplored.
-        self.vis_mask = np.zeros(shape=(mission.width, mission.height), dtype=np.bool)
+        self.vis_mask = np.zeros(shape=(mission.width, mission.height), dtype=np.bool_)
 
         # Stack of tasks/subtasks to complete (tuples)
         self.stack = []
@@ -581,13 +636,13 @@ class Bot:
             self.stack.pop()
 
         suggested_action = None
-        lots_of_none  = 0
+        lots_of_none = 0
         while self.stack:
             subgoal = self.stack[-1]
             suggested_action = subgoal.replan_before_action()
             if suggested_action == None:
                 lots_of_none += 1
-            if lots_of_none == 4: # TODO: hack... is there a better way?
+            if lots_of_none == 4:  # TODO: hack... is there a better way?
                 return None
             # If is not clear what can be done for the current subgoal
             # (because it is completed, because there is blocker,
@@ -618,8 +673,7 @@ class Bot:
 
                 if self.vis_mask[obj_pos]:
                     shortest_path_to_obj, _, with_blockers = self._shortest_path(
-                        lambda pos, cell: pos == obj_pos,
-                        try_with_blockers=True
+                        lambda pos, cell: pos == obj_pos, try_with_blockers=True
                     )
                     assert shortest_path_to_obj is not None
                     distance_to_obj = len(shortest_path_to_obj)
@@ -633,8 +687,9 @@ class Bot:
                         # and 7 if the agent is carrying something
                         # (turn, drop, turn back, pick,
                         # turn to other direction, drop, turn back)
-                        distance_to_obj = (len(shortest_path_to_obj)
-                                           + (7 if self.mission.carrying else 4))
+                        distance_to_obj = len(shortest_path_to_obj) + (
+                            7 if self.mission.carrying else 4
+                        )
 
                     # If we looking for a door and we are currently in that cell
                     # that contains the door, it will take us at least 2
@@ -677,7 +732,6 @@ class Bot:
         # Mark everything in front of us as visible
         for vis_j in range(0, view_size):
             for vis_i in range(0, view_size):
-
                 if not vis_mask[vis_i, vis_j]:
                     continue
 
@@ -695,7 +749,7 @@ class Bot:
         self.prev_agent_pos = self.mission.agent_pos
         self.prev_carrying = self.mission.carrying
         fwd_cell = self.mission.grid.get(*self.mission.agent_pos + self.mission.dir_vec)
-        if fwd_cell and fwd_cell.type == 'door':
+        if fwd_cell and fwd_cell.type == "door":
             self.fwd_door_was_open = fwd_cell.is_open
         self.prev_fwd_cell = fwd_cell
 
@@ -708,7 +762,7 @@ class Bot:
             if not self.mission.in_view(*position_to_try):
                 return distance - 1
             cell = self.mission.grid.get(*position_to_try)
-            if cell and (cell.type.endswith('door') or cell.type == 'wall'):
+            if cell and (cell.type.endswith("door") or cell.type == "wall"):
                 return distance
             distance += 1
 
@@ -753,10 +807,10 @@ class Bot:
                 continue
 
             if cell:
-                if cell.type == 'wall':
+                if cell.type == "wall":
                     continue
                 # If this is a door
-                elif cell.type == 'door':
+                elif cell.type == "door":
                     # If the door is closed, don't visit neighbors
                     if not cell.is_open:
                         continue
@@ -786,12 +840,13 @@ class Bot:
         path = finish = None
         with_blockers = False
         path, finish, previous_pos = self._breadth_first_search(
-            initial_states, accept_fn, ignore_blockers=False)
+            initial_states, accept_fn, ignore_blockers=False
+        )
         if not path and try_with_blockers:
             with_blockers = True
             path, finish, _ = self._breadth_first_search(
-                [(i, j, 1, 0) for i, j in previous_pos],
-                accept_fn, ignore_blockers=True)
+                [(i, j, 1, 0) for i, j in previous_pos], accept_fn, ignore_blockers=True
+            )
             if path:
                 # `path` now contains the path to a cell that is reachable without
                 # blockers. Now let's add the path to this cell
@@ -843,17 +898,31 @@ class Bot:
             # We want to ensure that empty cells are connected, and that one can reach
             # any object cell from any other object cell.
             cell_class = []
-            for k, l in [(-1, -1), (0, -1), (1, -1), (1, 0),
-                         (1, 1), (0, 1), (-1, 1), (-1, 0)]:
+            for k, l in [
+                (-1, -1),
+                (0, -1),
+                (1, -1),
+                (1, 0),
+                (1, 1),
+                (0, 1),
+                (-1, 1),
+                (-1, 0),
+            ]:
                 nb_pos = (i + k, j + l)
                 cell = grid.get(*nb_pos)
                 # compeletely blocked
-                if self.vis_mask[nb_pos] and cell and cell.type == 'wall':
+                if self.vis_mask[nb_pos] and cell and cell.type == "wall":
                     cell_class.append(1)
                 # empty
-                elif (self.vis_mask[nb_pos]
-                        and (not cell or (cell.type == 'door' and cell.is_open) or nb_pos == agent_pos)
-                        and nb_pos != except_pos):
+                elif (
+                    self.vis_mask[nb_pos]
+                    and (
+                        not cell
+                        or (cell.type == "door" and cell.is_open)
+                        or nb_pos == agent_pos
+                    )
+                    and nb_pos != except_pos
+                ):
                     cell_class.append(0)
                 # an object cell
                 else:
@@ -870,7 +939,11 @@ class Bot:
             for i in range(8):
                 next_i = (i + 1) % 8
                 prev_i = (i + 7) % 8
-                if cell_class[i] == 2 and cell_class[prev_i] != 0 and cell_class[next_i] != 0:
+                if (
+                    cell_class[i] == 2
+                    and cell_class[prev_i] != 0
+                    and cell_class[next_i] != 0
+                ):
                     return False
 
             return changes <= 2
@@ -913,7 +986,7 @@ class Bot:
 
         if isinstance(instr, OpenInstr):
             self.stack.append(OpenSubgoal(self))
-            self.stack.append(GoNextToSubgoal(self, instr.desc, reason='Open'))
+            self.stack.append(GoNextToSubgoal(self, instr.desc, reason="Open"))
             return
 
         if isinstance(instr, PickupInstr):
@@ -926,7 +999,7 @@ class Bot:
 
         if isinstance(instr, PutNextInstr):
             self.stack.append(DropSubgoal(self))
-            self.stack.append(GoNextToSubgoal(self, instr.desc_fixed, reason='PutNext'))
+            self.stack.append(GoNextToSubgoal(self, instr.desc_fixed, reason="PutNext"))
             self.stack.append(PickupSubgoal(self))
             self.stack.append(GoNextToSubgoal(self, instr.desc_move))
             return
@@ -948,7 +1021,9 @@ class Bot:
         When the agent opens a box, we raise an error and mark the task unsolvable.
         This is a tad conservative, because maybe the box is irrelevant to the mission.
         """
-        if (action == self.mission.actions.toggle
-                and self.prev_fwd_cell is not None
-                and self.prev_fwd_cell.type == 'box'):
-            raise DisappearedBoxError('A box was opened. I am not sure I can help now.')
+        if (
+            action == self.mission.actions.toggle
+            and self.prev_fwd_cell is not None
+            and self.prev_fwd_cell.type == "box"
+        ):
+            raise DisappearedBoxError("A box was opened. I am not sure I can help now.")
